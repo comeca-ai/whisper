@@ -11,6 +11,7 @@ import os
 import re
 from typing import Optional, Union, List
 import logging
+from openrouter_integration import openrouter_client
 
 # Railway environment configuration
 HOST = os.getenv('HOST', '0.0.0.0')
@@ -114,8 +115,19 @@ def apply_corrections(text: str) -> str:
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint."""
-    return {"status": "healthy", "version": "3.0.0"}
+    """Health check endpoint with OpenRouter integration status."""
+    openrouter_status = "enabled" if openrouter_client.api_key else "disabled"
+    
+    return {
+        "status": "healthy", 
+        "version": "3.1.0",
+        "features": {
+            "whisper_optimization": "enabled",
+            "openrouter_integration": openrouter_status,
+            "ai_features": ["summarize", "translate", "sentiment", "improve"]
+        },
+        "models": ["tiny", "base", "small", "medium", "large", "turbo"]
+    }
 
 @app.get("/models")
 async def list_models():
@@ -282,6 +294,249 @@ async def get_corrections():
         "glossary": CORRECTION_GLOSSARY,
         "total": len(CORRECTION_GLOSSARY)
     }
+
+# ============================================================================
+# OPENROUTER INTEGRATION ENDPOINTS
+# ============================================================================
+
+@app.post("/transcribe-and-summarize")
+async def transcribe_and_summarize(
+    file: UploadFile = File(...),
+    model: str = Form(None),
+    language: str = Form("pt"),
+    summary_length: str = Form("short")  # short, medium, long
+):
+    """Transcribe audio and generate AI summary."""
+    
+    # First transcribe
+    transcribe_result = await transcribe_optimized(
+        file=file,
+        model=model,
+        language=language,
+        clean_repetitions=True,
+        apply_corrections=True
+    )
+    
+    if "error" in transcribe_result:
+        return transcribe_result
+    
+    # Then summarize
+    try:
+        summary = await openrouter_client.summarize_text(transcribe_result["text"])
+        
+        return {
+            "transcription": transcribe_result,
+            "summary": summary,
+            "processing": {
+                "transcription_engine": "whisper",
+                "ai_model": "claude-3.5-sonnet",
+                "summary_length": summary_length
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "transcription": transcribe_result,
+            "summary_error": str(e),
+            "message": "Transcription succeeded but summary failed"
+        }
+
+@app.post("/transcribe-and-translate")
+async def transcribe_and_translate(
+    file: UploadFile = File(...),
+    model: str = Form(None),
+    target_language: str = Form("en"),  # en, es, fr, de, it
+    language: str = Form("pt")
+):
+    """Transcribe audio and translate to target language."""
+    
+    # First transcribe
+    transcribe_result = await transcribe_optimized(
+        file=file,
+        model=model,
+        language=language,
+        clean_repetitions=True,
+        apply_corrections=True
+    )
+    
+    if "error" in transcribe_result:
+        return transcribe_result
+    
+    # Then translate
+    try:
+        translation = await openrouter_client.translate_text(
+            transcribe_result["text"], 
+            target_language
+        )
+        
+        return {
+            "original_transcription": transcribe_result,
+            "translation": {
+                "text": translation,
+                "target_language": target_language
+            },
+            "processing": {
+                "transcription_engine": "whisper",
+                "translation_model": "claude-3.5-sonnet"
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "transcription": transcribe_result,
+            "translation_error": str(e),
+            "message": "Transcription succeeded but translation failed"
+        }
+
+@app.post("/transcribe-and-analyze")
+async def transcribe_and_analyze(
+    file: UploadFile = File(...),
+    model: str = Form(None),
+    language: str = Form("pt"),
+    analysis_type: str = Form("all")  # summary, sentiment, actions, all
+):
+    """Transcribe audio and perform comprehensive analysis."""
+    
+    # First transcribe
+    transcribe_result = await transcribe_optimized(
+        file=file,
+        model=model,
+        language=language,
+        clean_repetitions=True,
+        apply_corrections=True
+    )
+    
+    if "error" in transcribe_result:
+        return transcribe_result
+    
+    analysis_results = {}
+    errors = []
+    
+    text = transcribe_result["text"]
+    
+    # Summary
+    if analysis_type in ["summary", "all"]:
+        try:
+            analysis_results["summary"] = await openrouter_client.summarize_text(text)
+        except Exception as e:
+            errors.append(f"Summary failed: {e}")
+    
+    # Sentiment
+    if analysis_type in ["sentiment", "all"]:
+        try:
+            analysis_results["sentiment"] = await openrouter_client.analyze_sentiment(text)
+        except Exception as e:
+            errors.append(f"Sentiment analysis failed: {e}")
+    
+    # Action items
+    if analysis_type in ["actions", "all"]:
+        try:
+            analysis_results["action_items"] = await openrouter_client.extract_action_items(text)
+        except Exception as e:
+            errors.append(f"Action items extraction failed: {e}")
+    
+    # Text improvement
+    if analysis_type in ["improve", "all"]:
+        try:
+            analysis_results["improved_text"] = await openrouter_client.improve_transcription(text)
+        except Exception as e:
+            errors.append(f"Text improvement failed: {e}")
+    
+    result = {
+        "original_transcription": transcribe_result,
+        "analysis": analysis_results,
+        "processing": {
+            "transcription_engine": "whisper",
+            "ai_model": "claude-3.5-sonnet",
+            "analysis_type": analysis_type
+        }
+    }
+    
+    if errors:
+        result["errors"] = errors
+    
+    return result
+
+@app.post("/improve-transcription")
+async def improve_transcription_endpoint(
+    text: str = Form(...),
+    language: str = Form("pt"),
+    ai_model: str = Form("qwen3-32b")  # Novo parâmetro para escolher modelo
+):
+    """Improve existing transcription using AI."""
+    
+    try:
+        improved = await openrouter_client.improve_transcription(text, model=ai_model)
+        
+        return {
+            "original_text": text,
+            "improved_text": improved,
+            "processing": {
+                "ai_model": ai_model,
+                "language": language
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Text improvement failed"
+        }
+
+@app.get("/ai-models")
+async def list_ai_models():
+    """Lista modelos de IA disponíveis via OpenRouter."""
+    return {
+        "available_models": openrouter_client.list_available_models(),
+        "default_model": "qwen3-32b",
+        "recommended": {
+            "speed": "gpt-4o-mini",
+            "quality": "claude-3.5-sonnet", 
+            "cost_effective": "qwen3-32b",
+            "reasoning": "deepseek-r1"
+        }
+    }
+
+@app.post("/compare-ai-models")
+async def compare_ai_models_endpoint(
+    text: str = Form(...),
+    task: str = Form("improve"),  # improve, summarize, translate
+    models: str = Form("qwen3-32b,claude-3.5-sonnet,gpt-4o-mini")
+):
+    """Compara diferentes modelos IA na mesma tarefa."""
+    
+    try:
+        model_list = [m.strip() for m in models.split(",")]
+        comparison = await openrouter_client.compare_models(text, task, model_list)
+        
+        # Adiciona ranking por velocidade e qualidade
+        sorted_by_speed = sorted(
+            comparison.items(), 
+            key=lambda x: x[1].get('time', 999)
+        )
+        
+        return {
+            "task": task,
+            "input_text": text,
+            "results": comparison,
+            "ranking": {
+                "fastest": sorted_by_speed[0][0] if sorted_by_speed else None,
+                "slowest": sorted_by_speed[-1][0] if sorted_by_speed else None
+            },
+            "summary": {
+                "models_tested": len(model_list),
+                "total_time": sum(r.get('time', 0) for r in comparison.values()),
+                "average_time": round(sum(r.get('time', 0) for r in comparison.values()) / len(model_list), 2)
+            }
+        }
+        
+    except Exception as e:
+        return {
+            "error": str(e),
+            "message": "Model comparison failed"
+        }
+
+# ============================================================================
 
 if __name__ == "__main__":
     import uvicorn

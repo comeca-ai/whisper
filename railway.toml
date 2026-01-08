@@ -1,0 +1,54 @@
+# =============================================================================
+# RAILWAY DEPLOYMENT CONFIGURATION - WHISPER ENHANCED
+# =============================================================================
+
+[build]
+# Build command - Railway will install dependencies automatically
+builder = "dockerfile"
+
+[deploy]
+# Deploy configuration
+healthcheckPath = "/health"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+# Start command - will run the optimized API
+startCommand = "python api_otimizada.py"
+
+# Environment settings
+[variables]
+# Python environment
+PYTHONPATH = "/app"
+PYTHONUNBUFFERED = "1"
+
+# API Configuration
+PORT = "8000"
+HOST = "0.0.0.0"
+
+# Whisper settings (production optimized)
+WHISPER_MODEL = "base"
+WHISPER_DEVICE = "cpu"
+COMPRESSION_RATIO_THRESHOLD = "1.8"
+CONDITION_ON_PREVIOUS_TEXT = "false"
+CLEAN_REPETITIONS = "true"
+APPLY_CORRECTIONS = "true"
+
+# Performance settings
+MAX_WORKERS = "1"
+TIMEOUT = "300"
+MAX_FILE_SIZE = "25MB"
+
+# Logging
+LOG_LEVEL = "INFO"
+
+# =============================================================================
+# PRODUCTION NOTES
+# =============================================================================
+# 
+# 1. Railway automatically detects Dockerfile and builds the image
+# 2. The optimized API will run on port 8000 (Railway standard)
+# 3. Health check endpoint: https://your-app.railway.app/health
+# 4. API endpoint: https://your-app.railway.app/transcribe
+#
+# Environment Variables can be overridden in Railway dashboard
+# =============================================================================
