@@ -1,7 +1,59 @@
-# API dependencies
+# ================================================================
+# WHISPER ENHANCED API - DEPENDÊNCIAS OTIMIZADAS
+# ================================================================
+
+# Core API Framework
 fastapi>=0.104.0
 uvicorn[standard]>=0.24.0
 python-multipart>=0.0.6
 
-# Include base whisper requirements
+# Base Whisper (inclui todas as dependências principais)
 -r requirements.txt
+
+# Engines Adicionais (opcionais)
+# Descomente conforme necessário:
+
+# FunASR (Alibaba) - Para engine alternativo
+# funasr>=1.0.0
+# modelscope>=1.8.0
+
+# Faster-Whisper - Para performance otimizada
+# faster-whisper>=0.9.0
+
+# Wav2Vec2 - Para engine local
+# transformers>=4.21.0
+# torchaudio>=0.12.0
+
+# ================================================================
+# DEPENDÊNCIAS DE DESENVOLVIMENTO E TESTE
+# ================================================================
+
+# Para testes automatizados
+requests>=2.31.0
+pytest>=7.4.0
+
+# Para análise de performance
+numpy>=1.24.0
+pandas>=2.0.0
+
+# Para logging avançado
+structlog>=23.1.0
+
+# Para validação de dados
+pydantic>=2.0.0
+
+# ================================================================
+# NOTAS DE INSTALAÇÃO
+# ================================================================
+#
+# INSTALAÇÃO BÁSICA (recomendada):
+# pip install -r requirements-api.txt
+#
+# INSTALAÇÃO COMPLETA (todos os engines):
+# pip install -r requirements-api.txt
+# pip install funasr modelscope faster-whisper transformers torchaudio
+#
+# SETUP DOCKER:
+# docker-compose up --build
+#
+# ================================================================
